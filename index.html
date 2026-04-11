@@ -87,6 +87,7 @@
   .mode-btn {
     padding: 8px 20px;
     font-size: 0.9rem;
+    flex: 1;
     border: 2px solid #c0a060;
     border-radius: 6px;
     background: transparent;
@@ -101,6 +102,11 @@
   .mode-btn.active {
     background: #c0a060;
     color: #1a1a2e;
+  }
+  #mode-desc {
+    font-size: 0.85rem;
+    color: #999;
+    min-height: 1.2em;
   }
   #controls button.new-game {
     padding: 10px 28px;
@@ -157,6 +163,7 @@
     <button class="mode-btn" data-mode="random" onclick="setMode('random')">Random</button>
     <button class="mode-btn" data-mode="asymmetric" onclick="setMode('asymmetric')">Random Asymmetric</button>
   </div>
+  <div id="mode-desc">Standard starting position</div>
   <button class="new-game" onclick="resetGame()">New Game</button>
 </div>
 <div id="rules">
@@ -196,11 +203,18 @@ let gameOver = false;
 let inCheck = false;
 let gameMode = 'classic';
 
+const MODE_DESCRIPTIONS = {
+  classic: 'Standard starting position',
+  random: 'Randomised but symmetric starting position',
+  asymmetric: 'Fully randomised starting position',
+};
+
 function setMode(mode) {
   gameMode = mode;
   document.querySelectorAll('.mode-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.mode === mode);
   });
+  document.getElementById('mode-desc').textContent = MODE_DESCRIPTIONS[mode];
   resetGame();
 }
 
