@@ -58,6 +58,9 @@
   .square.valid-capture {
     box-shadow: inset 0 0 0 4px rgba(255, 50, 50, 0.7);
   }
+  .square.in-check {
+    background: rgba(255, 0, 0, 0.5) !important;
+  }
   .piece {
     width: 64px;
     height: 64px;
@@ -108,12 +111,14 @@ let board = [];
 let turn = 'white';
 let selectedSquare = null;
 let gameOver = false;
+let inCheck = false;
 
 function resetGame() {
   board = [...INITIAL_BOARD];
   turn = 'white';
   selectedSquare = null;
   gameOver = false;
+  inCheck = false;
   render();
   setStatus("White's turn");
 }
@@ -122,8 +127,9 @@ function setStatus(msg) {
   document.getElementById('status').textContent = msg;
 }
 
-function getValidMoves(from) {
-  const piece = board[from];
+// Pseudo-legal moves (ignores whether own king is left in check)
+function getRawMoves(from, boardState) {
+  const piece = boardState[from];
   if (!piece) return [];
   const info = PIECES[piece];
   const moves = [];
@@ -132,7 +138,7 @@ function getValidMoves(from) {
     for (const d of [-1, 1]) {
       const to = from + d;
       if (to >= 0 && to < 8) {
-        const target = board[to];
+        const target = boardState[to];
         if (!target || PIECES[target].color !== info.color) {
           moves.push(to);
         }
@@ -142,7 +148,7 @@ function getValidMoves(from) {
     for (const d of [-2, 2]) {
       const to = from + d;
       if (to >= 0 && to < 8) {
-        const target = board[to];
+        const target = boardState[to];
         if (!target || PIECES[target].color !== info.color) {
           moves.push(to);
         }
@@ -152,7 +158,7 @@ function getValidMoves(from) {
     for (const d of [-1, 1]) {
       let to = from + d;
       while (to >= 0 && to < 8) {
-        const target = board[to];
+        const target = boardState[to];
         if (!target) {
           moves.push(to);
         } else if (PIECES[target].color !== info.color) {
@@ -169,22 +175,77 @@ function getValidMoves(from) {
   return moves;
 }
 
+function findKing(color, boardState) {
+  for (let i = 0; i < 8; i++) {
+    if (boardState[i] && PIECES[boardState[i]].color === color && PIECES[boardState[i]].type === 'king') {
+      return i;
+    }
+  }
+  return -1;
+}
+
+function isInCheck(color, boardState) {
+  const kingPos = findKing(color, boardState);
+  if (kingPos === -1) return false;
+  const opponent = color === 'white' ? 'black' : 'white';
+  for (let i = 0; i < 8; i++) {
+    if (boardState[i] && PIECES[boardState[i]].color === opponent) {
+      if (getRawMoves(i, boardState).includes(kingPos)) return true;
+    }
+  }
+  return false;
+}
+
+// Legal moves: raw moves filtered to those that don't leave own king in check
+function getLegalMoves(from) {
+  const piece = board[from];
+  if (!piece) return [];
+  const color = PIECES[piece].color;
+  return getRawMoves(from, board).filter(to => {
+    const sim = [...board];
+    sim[to] = sim[from];
+    sim[from] = null;
+    return !isInCheck(color, sim);
+  });
+}
+
+function hasAnyLegalMoves(color) {
+  for (let i = 0; i < 8; i++) {
+    if (board[i] && PIECES[board[i]].color === color) {
+      if (getLegalMoves(i).length > 0) return true;
+    }
+  }
+  return false;
+}
+
 function movePiece(from, to) {
-  const captured = board[to];
   board[to] = board[from];
   board[from] = null;
 
-  if (captured && PIECES[captured].type === 'king') {
+  turn = turn === 'white' ? 'black' : 'white';
+  inCheck = isInCheck(turn, board);
+
+  const hasLegal = hasAnyLegalMoves(turn);
+  const turnName = turn === 'white' ? 'White' : 'Black';
+  const winnerName = turn === 'white' ? 'Black' : 'White';
+
+  if (!hasLegal) {
     gameOver = true;
-    const winner = turn === 'white' ? 'White' : 'Black';
     render();
-    setStatus(`${winner} wins!`);
+    if (inCheck) {
+      setStatus(`Checkmate! ${winnerName} wins!`);
+    } else {
+      setStatus('Stalemate! Draw.');
+    }
     return;
   }
 
-  turn = turn === 'white' ? 'black' : 'white';
   render();
-  setStatus(`${turn === 'white' ? 'White' : 'Black'}'s turn`);
+  if (inCheck) {
+    setStatus(`${turnName} is in check!`);
+  } else {
+    setStatus(`${turnName}'s turn`);
+  }
 }
 
 function onSquareClick(index) {
@@ -193,25 +254,22 @@ function onSquareClick(index) {
   const piece = board[index];
 
   if (selectedSquare !== null) {
-    const validMoves = getValidMoves(selectedSquare);
+    const validMoves = getLegalMoves(selectedSquare);
     if (validMoves.includes(index)) {
       movePiece(selectedSquare, index);
       selectedSquare = null;
       return;
     }
-    // Clicked on own piece — reselect
     if (piece && PIECES[piece].color === turn) {
       selectedSquare = index;
       render();
       return;
     }
-    // Clicked elsewhere — deselect
     selectedSquare = null;
     render();
     return;
   }
 
-  // No selection yet
   if (piece && PIECES[piece].color === turn) {
     selectedSquare = index;
     render();
@@ -222,13 +280,15 @@ function render() {
   const boardEl = document.getElementById('board');
   boardEl.innerHTML = '';
 
-  const validMoves = selectedSquare !== null ? getValidMoves(selectedSquare) : [];
+  const validMoves = selectedSquare !== null ? getLegalMoves(selectedSquare) : [];
+  const checkedKingPos = inCheck ? findKing(turn, board) : -1;
 
   for (let i = 0; i < 8; i++) {
     const sq = document.createElement('div');
     sq.className = 'square ' + (i % 2 === 0 ? 'light' : 'dark');
 
     if (i === selectedSquare) sq.classList.add('selected');
+    if (i === checkedKingPos) sq.classList.add('in-check');
     if (validMoves.includes(i)) {
       sq.classList.add(board[i] ? 'valid-capture' : 'valid-move');
     }
@@ -248,7 +308,6 @@ function render() {
         selectedSquare = i;
         e.dataTransfer.effectAllowed = 'move';
         img.classList.add('dragging');
-        // Re-render to show valid moves, but keep the dragging piece
         setTimeout(() => render(), 0);
       });
 
@@ -265,7 +324,7 @@ function render() {
     sq.addEventListener('drop', (e) => {
       e.preventDefault();
       if (selectedSquare !== null) {
-        const validMoves = getValidMoves(selectedSquare);
+        const validMoves = getLegalMoves(selectedSquare);
         if (validMoves.includes(i)) {
           movePiece(selectedSquare, i);
         }
