@@ -75,8 +75,34 @@
   .piece.dragging { opacity: 0.4; }
   #controls {
     margin-top: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
   }
-  #controls button {
+  #mode-select {
+    display: flex;
+    gap: 8px;
+  }
+  .mode-btn {
+    padding: 8px 20px;
+    font-size: 0.9rem;
+    border: 2px solid #c0a060;
+    border-radius: 6px;
+    background: transparent;
+    color: #c0a060;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.15s, color 0.15s;
+  }
+  .mode-btn:hover {
+    background: rgba(192, 160, 96, 0.15);
+  }
+  .mode-btn.active {
+    background: #c0a060;
+    color: #1a1a2e;
+  }
+  #controls button.new-game {
     padding: 10px 28px;
     font-size: 1rem;
     border: none;
@@ -86,7 +112,7 @@
     cursor: pointer;
     font-weight: 600;
   }
-  #controls button:hover { background: #d4b674; }
+  #controls button.new-game:hover { background: #d4b674; }
   #rules {
     margin-top: 28px;
     max-width: 480px;
@@ -126,7 +152,11 @@
 <div id="status">White's turn</div>
 <div id="board"></div>
 <div id="controls">
-  <button onclick="resetGame()">New Game</button>
+  <div id="mode-select">
+    <button class="mode-btn active" data-mode="classic" onclick="setMode('classic')">Classic</button>
+    <button class="mode-btn" data-mode="random" onclick="setMode('random')">Random</button>
+  </div>
+  <button class="new-game" onclick="resetGame()">New Game</button>
 </div>
 <div id="rules">
   <h2>Movement Rules</h2>
@@ -163,9 +193,32 @@ let turn = 'white';
 let selectedSquare = null;
 let gameOver = false;
 let inCheck = false;
+let gameMode = 'classic';
+
+function setMode(mode) {
+  gameMode = mode;
+  document.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.mode === mode);
+  });
+  resetGame();
+}
+
+const RANDOM_PERMUTATIONS = [
+  ['WK','WN','WR'], ['WK','WR','WN'], ['WN','WK','WR'],
+  ['WN','WR','WK'], ['WR','WK','WN'], ['WR','WN','WK'],
+];
+const WHITE_TO_BLACK = { WK: 'BK', WN: 'BN', WR: 'BR' };
+
+function generateRandomBoard() {
+  const perm = RANDOM_PERMUTATIONS[Math.floor(Math.random() * 6)];
+  return [
+    perm[0], perm[1], perm[2], null, null,
+    WHITE_TO_BLACK[perm[2]], WHITE_TO_BLACK[perm[1]], WHITE_TO_BLACK[perm[0]],
+  ];
+}
 
 function resetGame() {
-  board = [...INITIAL_BOARD];
+  board = gameMode === 'random' ? generateRandomBoard() : [...INITIAL_BOARD];
   turn = 'white';
   selectedSquare = null;
   gameOver = false;
