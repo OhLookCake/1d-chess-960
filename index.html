@@ -181,6 +181,10 @@
       <td><img class="rule-icon" src="pieces/white-rook.svg" alt="Rook"> Rook</td>
       <td>Slides any number of squares in either direction, blocked by pieces in its path</td>
     </tr>
+    <tr>
+      <td><img class="rule-icon" src="pieces/white-king.svg" alt="King"><img class="rule-icon" src="pieces/white-rook.svg" alt="Rook"> Castle</td>
+      <td>If the king and rook haven't moved, aren't adjacent, the king isn't in check, and all squares between them are empty, the king moves one square towards the rook while the rook moves two squares towards the king</td>
+    </tr>
   </table>
 </div>
 
@@ -202,6 +206,7 @@ let selectedSquare = null;
 let gameOver = false;
 let inCheck = false;
 let gameMode = 'classic';
+let hasMoved = new Set();
 
 const MODE_DESCRIPTIONS = {
   classic: 'Standard starting position',
@@ -262,6 +267,7 @@ function resetGame() {
   selectedSquare = null;
   gameOver = false;
   inCheck = false;
+  hasMoved = new Set();
   render();
   setStatus("White's turn");
 }
@@ -271,7 +277,7 @@ function setStatus(msg) {
 }
 
 // Pseudo-legal moves (ignores whether own king is left in check)
-function getRawMoves(from, boardState) {
+function getRawMoves(from, boardState, includeCastling = true) {
   const piece = boardState[from];
   if (!piece) return [];
   const info = PIECES[piece];
@@ -284,6 +290,26 @@ function getRawMoves(from, boardState) {
         const target = boardState[to];
         if (!target || PIECES[target].color !== info.color) {
           moves.push(to);
+        }
+      }
+    }
+    if (includeCastling && !hasMoved.has(piece)) {
+      const rookCode = info.color === 'white' ? 'WR' : 'BR';
+      if (!hasMoved.has(rookCode)) {
+        const rookPos = boardState.indexOf(rookCode);
+        if (rookPos !== -1 && Math.abs(rookPos - from) > 1) {
+          const dir = rookPos > from ? 1 : -1;
+          const kingDest = from + dir;
+          const rookDest = rookPos - 2 * dir;
+          if (kingDest !== rookDest && rookDest >= 0 && rookDest < 8) {
+            let clear = true;
+            for (let sq = from + dir; sq !== rookPos; sq += dir) {
+              if (boardState[sq] !== null) { clear = false; break; }
+            }
+            if (clear && !isInCheck(info.color, boardState)) {
+              moves.push(rookPos);
+            }
+          }
         }
       }
     }
@@ -333,7 +359,7 @@ function isInCheck(color, boardState) {
   const opponent = color === 'white' ? 'black' : 'white';
   for (let i = 0; i < 8; i++) {
     if (boardState[i] && PIECES[boardState[i]].color === opponent) {
-      if (getRawMoves(i, boardState).includes(kingPos)) return true;
+      if (getRawMoves(i, boardState, false).includes(kingPos)) return true;
     }
   }
   return false;
@@ -346,8 +372,17 @@ function getLegalMoves(from) {
   const color = PIECES[piece].color;
   return getRawMoves(from, board).filter(to => {
     const sim = [...board];
-    sim[to] = sim[from];
-    sim[from] = null;
+    const target = sim[to];
+    if (PIECES[piece].type === 'king' && target && PIECES[target].color === color && PIECES[target].type === 'rook') {
+      const dir = to > from ? 1 : -1;
+      sim[from] = null;
+      sim[to] = null;
+      sim[from + dir] = piece;
+      sim[to - 2 * dir] = target;
+    } else {
+      sim[to] = sim[from];
+      sim[from] = null;
+    }
     return !isInCheck(color, sim);
   });
 }
@@ -362,8 +397,22 @@ function hasAnyLegalMoves(color) {
 }
 
 function movePiece(from, to) {
-  board[to] = board[from];
-  board[from] = null;
+  const piece = board[from];
+  const target = board[to];
+
+  if (PIECES[piece].type === 'king' && target && PIECES[target].color === PIECES[piece].color && PIECES[target].type === 'rook') {
+    const dir = to > from ? 1 : -1;
+    board[from] = null;
+    board[to] = null;
+    board[from + dir] = piece;
+    board[to - 2 * dir] = target;
+    hasMoved.add(piece);
+    hasMoved.add(target);
+  } else {
+    hasMoved.add(piece);
+    board[to] = board[from];
+    board[from] = null;
+  }
 
   turn = turn === 'white' ? 'black' : 'white';
   inCheck = isInCheck(turn, board);
@@ -433,7 +482,8 @@ function render() {
     if (i === selectedSquare) sq.classList.add('selected');
     if (i === checkedKingPos) sq.classList.add('in-check');
     if (validMoves.includes(i)) {
-      sq.classList.add(board[i] ? 'valid-capture' : 'valid-move');
+      const isCastle = board[i] && board[selectedSquare] && PIECES[board[selectedSquare]].color === PIECES[board[i]].color;
+      sq.classList.add(board[i] && !isCastle ? 'valid-capture' : 'valid-move');
     }
 
     if (board[i]) {
