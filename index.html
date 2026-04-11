@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%23222'/><text x='50' y='68' font-family='Georgia,serif' font-size='60' font-style='italic' fill='%23f5f5f5' text-anchor='middle'>e</text></svg>">
 <title>1D Chess</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -262,7 +263,7 @@ function onSquareClick(index) {
       return;
     }
     if (piece && PIECES[piece].color === turn) {
-      selectedSquare = index;
+      selectedSquare = selectedSquare === index ? null : index;
       render();
       return;
     }
@@ -272,7 +273,7 @@ function onSquareClick(index) {
   }
 
   if (piece && PIECES[piece].color === turn) {
-    selectedSquare = index;
+    selectedSquare = selectedSquare === index ? null : index;
     render();
   }
 }
