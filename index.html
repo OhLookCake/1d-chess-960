@@ -155,6 +155,7 @@
   <div id="mode-select">
     <button class="mode-btn active" data-mode="classic" onclick="setMode('classic')">Classic</button>
     <button class="mode-btn" data-mode="random" onclick="setMode('random')">Random</button>
+    <button class="mode-btn" data-mode="asymmetric" onclick="setMode('asymmetric')">Random Asymmetric</button>
   </div>
   <button class="new-game" onclick="resetGame()">New Game</button>
 </div>
@@ -203,22 +204,46 @@ function setMode(mode) {
   resetGame();
 }
 
-const RANDOM_PERMUTATIONS = [
+const SIDE_PERMUTATIONS = [
   ['WK','WN','WR'], ['WK','WR','WN'], ['WN','WK','WR'],
   ['WN','WR','WK'], ['WR','WK','WN'], ['WR','WN','WK'],
 ];
 const WHITE_TO_BLACK = { WK: 'BK', WN: 'BN', WR: 'BR' };
 
 function generateRandomBoard() {
-  const perm = RANDOM_PERMUTATIONS[Math.floor(Math.random() * 6)];
+  const perm = SIDE_PERMUTATIONS[Math.floor(Math.random() * 6)];
   return [
     perm[0], perm[1], perm[2], null, null,
     WHITE_TO_BLACK[perm[2]], WHITE_TO_BLACK[perm[1]], WHITE_TO_BLACK[perm[0]],
   ];
 }
 
+const ASYMMETRIC_BOARDS = (() => {
+  const invalid = new Set([
+    'WN,WR,WK,BN,BR,BK', 'WN,WR,WK,BN,BK,BR',
+    'WN,WR,WK,BR,BK,BN', 'WN,WR,WK,BR,BN,BK',
+  ]);
+  const boards = [];
+  for (const w of SIDE_PERMUTATIONS) {
+    for (const b of SIDE_PERMUTATIONS) {
+      const bk = [WHITE_TO_BLACK[b[0]], WHITE_TO_BLACK[b[1]], WHITE_TO_BLACK[b[2]]];
+      const key = `${w[0]},${w[1]},${w[2]},${bk[2]},${bk[1]},${bk[0]}`;
+      if (!invalid.has(key)) {
+        boards.push([w[0], w[1], w[2], null, null, bk[2], bk[1], bk[0]]);
+      }
+    }
+  }
+  return boards;
+})();
+
+function generateAsymmetricBoard() {
+  return [...ASYMMETRIC_BOARDS[Math.floor(Math.random() * ASYMMETRIC_BOARDS.length)]];
+}
+
 function resetGame() {
-  board = gameMode === 'random' ? generateRandomBoard() : [...INITIAL_BOARD];
+  board = gameMode === 'random' ? generateRandomBoard()
+       : gameMode === 'asymmetric' ? generateAsymmetricBoard()
+       : [...INITIAL_BOARD];
   turn = 'white';
   selectedSquare = null;
   gameOver = false;
