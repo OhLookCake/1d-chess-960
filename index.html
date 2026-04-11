@@ -233,16 +233,16 @@ function movePiece(from, to) {
     gameOver = true;
     render();
     if (inCheck) {
-      setStatus(`Checkmate! ${winnerName} wins!`);
+      setStatus(`Checkmate - ${winnerName} wins`);
     } else {
-      setStatus('Stalemate! Draw.');
+      setStatus('Stalemate, draw');
     }
     return;
   }
 
   render();
   if (inCheck) {
-    setStatus(`${turnName} is in check!`);
+    setStatus(`${turnName} is in check`);
   } else {
     setStatus(`${turnName}'s turn`);
   }
