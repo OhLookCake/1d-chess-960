@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>1D Chess</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background: #1a1a2e;
+    font-family: 'Segoe UI', sans-serif;
+    color: #eee;
+  }
+  h1 {
+    margin-bottom: 12px;
+    font-size: 2rem;
+    letter-spacing: 2px;
+  }
+  #status {
+    margin-bottom: 20px;
+    font-size: 1.1rem;
+    min-height: 1.4em;
+  }
+  #board {
+    display: flex;
+    border: 3px solid #c0a060;
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  }
+  .square {
+    width: 90px;
+    height: 90px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+    position: relative;
+  }
+  .square.light { background: #f0d9b5; }
+  .square.dark  { background: #b58863; }
+  .square.selected { box-shadow: inset 0 0 0 4px #ffef00; }
+  .square.valid-move::after {
+    content: '';
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.25);
+  }
+  .square.valid-capture {
+    box-shadow: inset 0 0 0 4px rgba(255, 50, 50, 0.7);
+  }
+  .piece {
+    width: 64px;
+    height: 64px;
+    cursor: grab;
+    filter: drop-shadow(1px 2px 2px rgba(0,0,0,0.4));
+    transition: transform 0.1s;
+    pointer-events: auto;
+  }
+  .piece:active { cursor: grabbing; transform: scale(1.15); }
+  .piece.dragging { opacity: 0.4; }
+  #controls {
+    margin-top: 24px;
+  }
+  #controls button {
+    padding: 10px 28px;
+    font-size: 1rem;
+    border: none;
+    border-radius: 6px;
+    background: #c0a060;
+    color: #1a1a2e;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  #controls button:hover { background: #d4b674; }
+</style>
+</head>
+<body>
+<h1>1D Chess</h1>
+<div id="status">White's turn</div>
+<div id="board"></div>
+<div id="controls">
+  <button onclick="resetGame()">New Game</button>
+</div>
+
+<script>
+const PIECES = {
+  WK: { svg: 'pieces/white-king.svg', color: 'white', type: 'king' },
+  WN: { svg: 'pieces/white-knight.svg', color: 'white', type: 'knight' },
+  WR: { svg: 'pieces/white-rook.svg', color: 'white', type: 'rook' },
+  BK: { svg: 'pieces/black-king.svg', color: 'black', type: 'king' },
+  BN: { svg: 'pieces/black-knight.svg', color: 'black', type: 'knight' },
+  BR: { svg: 'pieces/black-rook.svg', color: 'black', type: 'rook' },
+};
+
+const INITIAL_BOARD = ['WK', 'WN', 'WR', null, null, 'BR', 'BN', 'BK'];
+
+let board = [];
+let turn = 'white';
+let selectedSquare = null;
+let gameOver = false;
+
+function resetGame() {
+  board = [...INITIAL_BOARD];
+  turn = 'white';
+  selectedSquare = null;
+  gameOver = false;
+  render();
+  setStatus("White's turn");
+}
+
+function setStatus(msg) {
+  document.getElementById('status').textContent = msg;
+}
+
+function getValidMoves(from) {
+  const piece = board[from];
+  if (!piece) return [];
+  const info = PIECES[piece];
+  const moves = [];
+
+  if (info.type === 'king') {
+    for (const d of [-1, 1]) {
+      const to = from + d;
+      if (to >= 0 && to < 8) {
+        const target = board[to];
+        if (!target || PIECES[target].color !== info.color) {
+          moves.push(to);
+        }
+      }
+    }
+  } else if (info.type === 'knight') {
+    for (const d of [-2, 2]) {
+      const to = from + d;
+      if (to >= 0 && to < 8) {
+        const target = board[to];
+        if (!target || PIECES[target].color !== info.color) {
+          moves.push(to);
+        }
+      }
+    }
+  } else if (info.type === 'rook') {
+    for (const d of [-1, 1]) {
+      let to = from + d;
+      while (to >= 0 && to < 8) {
+        const target = board[to];
+        if (!target) {
+          moves.push(to);
+        } else if (PIECES[target].color !== info.color) {
+          moves.push(to);
+          break;
+        } else {
+          break;
+        }
+        to += d;
+      }
+    }
+  }
+
+  return moves;
+}
+
+function movePiece(from, to) {
+  const captured = board[to];
+  board[to] = board[from];
+  board[from] = null;
+
+  if (captured && PIECES[captured].type === 'king') {
+    gameOver = true;
+    const winner = turn === 'white' ? 'White' : 'Black';
+    render();
+    setStatus(`${winner} wins!`);
+    return;
+  }
+
+  turn = turn === 'white' ? 'black' : 'white';
+  render();
+  setStatus(`${turn === 'white' ? 'White' : 'Black'}'s turn`);
+}
+
+function onSquareClick(index) {
+  if (gameOver) return;
+
+  const piece = board[index];
+
+  if (selectedSquare !== null) {
+    const validMoves = getValidMoves(selectedSquare);
+    if (validMoves.includes(index)) {
+      movePiece(selectedSquare, index);
+      selectedSquare = null;
+      return;
+    }
+    // Clicked on own piece — reselect
+    if (piece && PIECES[piece].color === turn) {
+      selectedSquare = index;
+      render();
+      return;
+    }
+    // Clicked elsewhere — deselect
+    selectedSquare = null;
+    render();
+    return;
+  }
+
+  // No selection yet
+  if (piece && PIECES[piece].color === turn) {
+    selectedSquare = index;
+    render();
+  }
+}
+
+function render() {
+  const boardEl = document.getElementById('board');
+  boardEl.innerHTML = '';
+
+  const validMoves = selectedSquare !== null ? getValidMoves(selectedSquare) : [];
+
+  for (let i = 0; i < 8; i++) {
+    const sq = document.createElement('div');
+    sq.className = 'square ' + (i % 2 === 0 ? 'light' : 'dark');
+
+    if (i === selectedSquare) sq.classList.add('selected');
+    if (validMoves.includes(i)) {
+      sq.classList.add(board[i] ? 'valid-capture' : 'valid-move');
+    }
+
+    if (board[i]) {
+      const img = document.createElement('img');
+      img.className = 'piece';
+      img.src = PIECES[board[i]].svg;
+      img.alt = board[i];
+      img.draggable = true;
+
+      img.addEventListener('dragstart', (e) => {
+        if (gameOver || PIECES[board[i]].color !== turn) {
+          e.preventDefault();
+          return;
+        }
+        selectedSquare = i;
+        e.dataTransfer.effectAllowed = 'move';
+        img.classList.add('dragging');
+        // Re-render to show valid moves, but keep the dragging piece
+        setTimeout(() => render(), 0);
+      });
+
+      sq.appendChild(img);
+    }
+
+    sq.addEventListener('click', () => onSquareClick(i));
+
+    sq.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    });
+
+    sq.addEventListener('drop', (e) => {
+      e.preventDefault();
+      if (selectedSquare !== null) {
+        const validMoves = getValidMoves(selectedSquare);
+        if (validMoves.includes(i)) {
+          movePiece(selectedSquare, i);
+        }
+        selectedSquare = null;
+        render();
+      }
+    });
+
+    boardEl.appendChild(sq);
+  }
+}
+
+resetGame();
+</script>
+</body>
+</html>
