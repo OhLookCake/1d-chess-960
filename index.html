@@ -87,6 +87,38 @@
     font-weight: 600;
   }
   #controls button:hover { background: #d4b674; }
+  #rules {
+    margin-top: 28px;
+    max-width: 480px;
+    font-size: 0.9rem;
+    color: #bbb;
+    line-height: 1.6;
+  }
+  #rules h2 {
+    font-size: 1.1rem;
+    color: #eee;
+    margin-bottom: 8px;
+  }
+  #rules table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  #rules td {
+    padding: 6px 10px;
+    vertical-align: top;
+    border-bottom: 1px solid #333;
+  }
+  #rules td:first-child {
+    white-space: nowrap;
+    color: #eee;
+    font-weight: 600;
+  }
+  #rules img.rule-icon {
+    width: 24px;
+    height: 24px;
+    vertical-align: middle;
+    margin-right: 4px;
+  }
 </style>
 </head>
 <body>
@@ -95,6 +127,23 @@
 <div id="board"></div>
 <div id="controls">
   <button onclick="resetGame()">New Game</button>
+</div>
+<div id="rules">
+  <h2>Movement Rules</h2>
+  <table>
+    <tr>
+      <td><img class="rule-icon" src="pieces/white-king.svg" alt="King"> King</td>
+      <td>Moves one square in either direction</td>
+    </tr>
+    <tr>
+      <td><img class="rule-icon" src="pieces/white-knight.svg" alt="Knight"> Knight</td>
+      <td>Jumps exactly two squares in either direction, leaping over any pieces in the way</td>
+    </tr>
+    <tr>
+      <td><img class="rule-icon" src="pieces/white-rook.svg" alt="Rook"> Rook</td>
+      <td>Slides any number of squares in either direction, blocked by pieces in its path</td>
+    </tr>
+  </table>
 </div>
 
 <script>
